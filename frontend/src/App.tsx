@@ -12,7 +12,7 @@ export default function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <Header />
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-auto pb-16 md:pb-0">
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/class" element={<ClassTimetablePage />} />

@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { getTeacherSchedule } from '../engine/generator';
 import { ALL_TEACHERS } from '../data/schoolConfig';
 import { useTimetable } from '../context/TimetableContext';
-import { DAYS, PERIODS, PERIOD_TIMINGS, SUBJECT_COLORS, SubjectName } from '../types';
+import { Day, DAYS, PERIODS, PERIOD_TIMINGS, SUBJECT_COLORS, SubjectName } from '../types';
 import PrintButton from '../components/PrintButton';
+
+const DAY_SHORT: Record<Day, string> = {
+  Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri',
+};
 
 export default function TeacherTimetablePage() {
   const [teacherId, setTeacherId] = useState(ALL_TEACHERS[0].id);
+  const [mobileDay, setMobileDay] = useState<Day>('Monday');
   const { timetable: tt } = useTimetable();
 
   const teacher = ALL_TEACHERS.find((t) => t.id === teacherId)!;
@@ -95,8 +100,50 @@ export default function TeacherTimetablePage() {
         </span>
       </div>
 
-      {/* Schedule table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+      {/* Mobile: day-switcher + list */}
+      <div className="md:hidden rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Day tabs */}
+        <div className="flex bg-gray-800">
+          {DAYS.map((d) => (
+            <button
+              key={d}
+              onClick={() => setMobileDay(d)}
+              className={`flex-1 py-2 text-xs font-semibold transition-colors
+                ${d === mobileDay ? 'bg-white text-blue-800' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              {DAY_SHORT[d]}
+            </button>
+          ))}
+        </div>
+        {/* Period list for selected day */}
+        <div>
+          {PERIODS.map((p) => {
+            const timing = PERIOD_TIMINGS.find((t) => t.period === p)!;
+            const entry = lookup.get(`${mobileDay}-${p}`);
+            return (
+              <div key={p} className="flex items-stretch border-b border-gray-100 last:border-b-0 bg-white">
+                <div className="w-20 shrink-0 p-2 border-r border-gray-100 flex flex-col justify-center">
+                  <div className="font-semibold text-gray-800 text-xs">P{p}</div>
+                  <div className="text-gray-400 text-[10px]">{timing.start}–{timing.end}</div>
+                </div>
+                <div className="flex-1 p-1.5 flex items-center">
+                  {entry ? (
+                    <div className={`w-full rounded border px-2 py-1.5 text-center ${SUBJECT_COLORS[entry.subject].bg} ${SUBJECT_COLORS[entry.subject].text} ${SUBJECT_COLORS[entry.subject].border}`}>
+                      <div className="text-xs font-bold">{entry.classId}</div>
+                      <div className="text-[10px] opacity-80">{entry.subject}</div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-300 text-xs pl-2">Free</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Desktop: full table */}
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-gray-800 text-white">

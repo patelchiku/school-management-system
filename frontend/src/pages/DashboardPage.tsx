@@ -99,7 +99,7 @@ export default function DashboardPage() {
           <Clock className="w-4 h-4 text-blue-500" />
           Daily Schedule Structure
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+        <div className="flex gap-2 overflow-x-auto pb-1 text-xs md:grid md:grid-cols-4 lg:grid-cols-7 md:overflow-visible">
           {[
             { t: '7:25–7:45', l: 'Home Period', c: 'bg-gray-100 text-gray-600' },
             { t: '7:45–8:05', l: 'Prayer', c: 'bg-amber-100 text-amber-700' },
@@ -114,7 +114,7 @@ export default function DashboardPage() {
             { t: '12:15–12:50', l: 'Period 7', c: 'bg-blue-50 text-blue-700' },
             { t: '12:50–13:05', l: 'Home Period', c: 'bg-gray-100 text-gray-600' },
           ].map((row) => (
-            <div key={row.t} className={`rounded-lg p-2 text-center ${row.c}`}>
+            <div key={row.t} className={`rounded-lg p-2 text-center shrink-0 w-24 md:w-auto ${row.c}`}>
               <div className="font-semibold">{row.l}</div>
               <div className="opacity-70 text-[10px] mt-0.5">{row.t}</div>
             </div>

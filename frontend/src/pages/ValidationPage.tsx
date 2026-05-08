@@ -28,40 +28,42 @@ function SuggestionCard({
 
   return (
     <div className={`rounded-lg border p-4 ${severityStyles.ring}`}>
-      <div className="flex items-start gap-3">
-        {severityStyles.icon}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-gray-900 text-sm">{suggestion.title}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${severityStyles.badge}`}>
-              {suggestion.type === 'fix' ? 'Fix' : suggestion.type === 'optimize' ? 'Optimise' : 'Info'}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 mt-1">{suggestion.description}</p>
-
-          {suggestion.changes.length > 0 && (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
-            >
-              {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-              {expanded ? 'Hide' : 'Show'} {suggestion.changes.length} change{suggestion.changes.length !== 1 ? 's' : ''}
-            </button>
-          )}
-
-          {expanded && suggestion.changes.length > 0 && (
-            <div className="mt-2 space-y-1">
-              {suggestion.changes.map((c, i) => (
-                <div key={i} className="text-xs bg-white/70 border border-gray-200 rounded px-2 py-1 font-mono text-gray-700">
-                  {c.classId} · {c.day} P{c.period} → <span className="font-semibold">{c.newSlot.subject}</span>
-                </div>
-              ))}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {severityStyles.icon}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-medium text-gray-900 text-sm">{suggestion.title}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${severityStyles.badge}`}>
+                {suggestion.type === 'fix' ? 'Fix' : suggestion.type === 'optimize' ? 'Optimise' : 'Info'}
+              </span>
             </div>
-          )}
+            <p className="text-sm text-gray-600 mt-1">{suggestion.description}</p>
+
+            {suggestion.changes.length > 0 && (
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {expanded ? 'Hide' : 'Show'} {suggestion.changes.length} change{suggestion.changes.length !== 1 ? 's' : ''}
+              </button>
+            )}
+
+            {expanded && suggestion.changes.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {suggestion.changes.map((c, i) => (
+                  <div key={i} className="text-xs bg-white/70 border border-gray-200 rounded px-2 py-1 font-mono text-gray-700">
+                    {c.classId} · {c.day} P{c.period} → <span className="font-semibold">{c.newSlot.subject}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Accept / Reject */}
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 sm:shrink-0 justify-end">
           {suggestion.changes.length > 0 && (
             <button
               onClick={onAccept}
