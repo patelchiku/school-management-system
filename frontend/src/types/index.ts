@@ -126,6 +126,24 @@ export interface ValidationResult {
   warnings: string[];
 }
 
+// ─── Suggestions ─────────────────────────────────────────────────────────────
+
+export interface SlotChange {
+  classId: ClassId;
+  day: Day;
+  period: Period;
+  newSlot: TimetableSlot;
+}
+
+export interface Suggestion {
+  id: string;
+  type: 'fix' | 'optimize' | 'info';
+  severity: 'error' | 'warning' | 'info';
+  title: string;
+  description: string;
+  changes: SlotChange[];
+}
+
 // Weekly period requirements per class (timetable slots consumed)
 export const WEEKLY_REQUIREMENTS: Record<SubjectName, number> = {
   'Math':         5,

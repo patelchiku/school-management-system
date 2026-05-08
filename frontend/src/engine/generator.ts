@@ -7,7 +7,7 @@ import {
 } from '../types';
 import {
   CLASS_TEACHERS, CLASS_TEACHER_LABELS,
-  SANSKRIT_TEACHER_ID, SANSKRIT_TEACHER_LABEL,
+  SANSKRIT_CLASS_ASSIGNMENTS, SANSKRIT_TEACHER_LABELS,
   HINDI_TEACHER_ASSIGNMENTS, HINDI_TEACHER_LABELS,
   SCIENCE_LAB_SCHEDULE,
 } from '../data/schoolConfig';
@@ -317,12 +317,16 @@ function placeTheme(s: State): void {
   }
 }
 
-// ─── Global shared-teacher placer (MRV heuristic) ────────────────────────────
+// ─── Global shared-teacher placer (day-first MRV) ────────────────────────────
 // For subjects where one teacher covers many classes (Sanskrit, Hindi).
-// Iterates every (day, period) slot in order; when the shared teacher is free,
-// assigns the slot to whichever eligible class has the FEWEST remaining valid
-// slots (Most-Remaining-Values = most constrained first). This prevents the
-// greedy per-class approach from starving later classes.
+//
+// Iterates DAY by DAY. On each day, every class that still needs a period
+// gets exactly one slot (teacher teaches them at different periods throughout
+// the day). Classes are processed in MRV order (most-constrained first) so
+// that harder-to-schedule classes claim their slot before easier ones.
+//
+// This naturally enforces max-1-per-class-per-day and guarantees no class
+// is starved even when many classes compete for the same teacher.
 
 function placeSubjectGlobal(
   s: State,
@@ -334,7 +338,7 @@ function placeSubjectGlobal(
 ): void {
   const needed = new Map<ClassId, number>(classes.map((c) => [c, periodsPerClass]));
 
-  // Count remaining valid slots (teacher free + class free) for a class
+  // Count remaining valid slots across all days for MRV ordering
   const countOptions = (c: ClassId): number => {
     let n = 0;
     for (const d of DAYS)
@@ -343,26 +347,40 @@ function placeSubjectGlobal(
     return n;
   };
 
-  for (const d of DAYS) {
-    for (const p of PERIODS) {
-      if (!isTeacherFree(s, teacher, d, p)) continue;
+  const subjectCountOnDay = (c: ClassId, d: Day): number => {
+    let n = 0;
+    for (const p of PERIODS) if (s.tt[c][d][p]?.subject === subject) n++;
+    return n;
+  };
 
-      // Eligible: still needs periods AND this slot is free for the class
+  // Passes: keep looping over days until all needs are met or no progress
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (const d of DAYS) {
+      // Eligible: still needs a period, no slot placed yet today, and has a free slot available
       const eligible = classes.filter(
-        (c) => (needed.get(c) ?? 0) > 0 && isFree(s, c, d, p),
+        (c) =>
+          (needed.get(c) ?? 0) > 0 &&
+          subjectCountOnDay(c, d) === 0 &&
+          PERIODS.some((p) => isFree(s, c, d, p) && isTeacherFree(s, teacher, d, p)),
       );
       if (eligible.length === 0) continue;
 
-      // Pick most constrained (fewest remaining options)
-      let best = eligible[0];
-      let bestOpts = countOptions(best);
-      for (let i = 1; i < eligible.length; i++) {
-        const opts = countOptions(eligible[i]);
-        if (opts < bestOpts) { bestOpts = opts; best = eligible[i]; }
-      }
+      // Sort by MRV (most constrained first) so tight classes get served early
+      eligible.sort((a, b) => countOptions(a) - countOptions(b));
 
-      place(s, best, d, p, subject, teacher, teacherLabel);
-      needed.set(best, (needed.get(best) ?? 0) - 1);
+      for (const c of eligible) {
+        // Give this class exactly one slot today (max 1 per day)
+        for (const p of PERIODS) {
+          if (isFree(s, c, d, p) && isTeacherFree(s, teacher, d, p)) {
+            place(s, c, d, p, subject, teacher, teacherLabel);
+            needed.set(c, (needed.get(c) ?? 0) - 1);
+            progress = true;
+            break; // one per day per class
+          }
+        }
+      }
     }
   }
 
@@ -370,17 +388,19 @@ function placeSubjectGlobal(
     if (n > 0) console.warn(`${subject} short: ${c} needs ${n} more`);
 }
 
-// ─── Step 8: Sanskrit (2 periods, 1 shared teacher) ──────────────────────────
+// ─── Step 8: Sanskrit (2 periods, 2 teachers — T1: Std 1&2, T2: Std 3&4) ─────
 
 function placeSanskrit(s: State): void {
-  placeSubjectGlobal(
-    s,
-    SANSKRIT_TEACHER_ID,
-    SANSKRIT_TEACHER_LABEL,
-    'Sanskrit',
-    ALL_CLASSES,
-    2,
-  );
+  const groups = new Map<string, ClassId[]>();
+  for (const c of ALL_CLASSES) {
+    const t = SANSKRIT_CLASS_ASSIGNMENTS[c];
+    if (!groups.has(t)) groups.set(t, []);
+    groups.get(t)!.push(c);
+  }
+  for (const [teacher, classes] of groups) {
+    const label = SANSKRIT_TEACHER_LABELS[teacher] ?? teacher;
+    placeSubjectGlobal(s, teacher, label, 'Sanskrit', classes, 2);
+  }
 }
 
 // ─── Step 9: Hindi (4 periods per class, 3 separate teachers) ────────────────
@@ -471,6 +491,8 @@ export function validateTimetable(tt: FullTimetable): ValidationResult {
     for (const d of DAYS) {
       let mathOnDay = 0;
       let mathPeriod: number | null = null;
+      let hindiOnDay = 0;
+      let sanskritOnDay = 0;
 
       for (const p of PERIODS) {
         const slot = tt[c][d][p];
@@ -479,7 +501,9 @@ export function validateTimetable(tt: FullTimetable): ValidationResult {
         const sub = slot.subject;
         counts[sub] = (counts[sub] ?? 0) + 1;
 
-        if (sub === 'Math') { mathOnDay++; mathPeriod = p; }
+        if (sub === 'Math')    { mathOnDay++;    mathPeriod = p; }
+        if (sub === 'Hindi')   { hindiOnDay++;   }
+        if (sub === 'Sanskrit') { sanskritOnDay++; }
 
         // Resource clash tracking
         const sk = slotKey(d, p);
@@ -507,6 +531,10 @@ export function validateTimetable(tt: FullTimetable): ValidationResult {
         errors.push(`${c}: Math count on ${d} = ${mathOnDay} (expected 1)`);
       if (mathPeriod && !MATH_ELIGIBLE_PERIODS.includes(mathPeriod as Period))
         errors.push(`${c}: Math on ${d} in P${mathPeriod} (must be P1/P2/P3)`);
+      if (hindiOnDay > 1)
+        errors.push(`${c}: Hindi appears ${hindiOnDay}× on ${d} (max 1 per day)`);
+      if (sanskritOnDay > 1)
+        errors.push(`${c}: Sanskrit appears ${sanskritOnDay}× on ${d} (max 1 per day)`);
     }
 
     // Check weekly counts

@@ -21,11 +21,25 @@ export const CLASS_TEACHER_LABELS: Record<ClassId, string> = {
   '4G': 'Class Teacher 4G', '4D': 'Class Teacher 4D',
 };
 
-// ─── Sanskrit Teacher ─────────────────────────────────────────────────────────
-// One teacher covers all 16 classes (2 periods/class = 32 periods/week)
+// ─── Sanskrit Teachers ────────────────────────────────────────────────────────
+// Two teachers split the 16 classes to keep each teacher's load manageable.
+// T1: Standards 1 & 2 (8 classes = 16 periods/week)
+// T2: Standards 3 & 4 (8 classes = 16 periods/week)
 
-export const SANSKRIT_TEACHER_ID = 'Sanskrit-T1';
-export const SANSKRIT_TEACHER_LABEL = 'Sanskrit Teacher';
+export const SANSKRIT_TEACHER_ID = 'Sanskrit-T1';      // kept for backward compat
+export const SANSKRIT_TEACHER_LABEL = 'Sanskrit Teacher 1';
+
+export const SANSKRIT_CLASS_ASSIGNMENTS: Record<ClassId, string> = {
+  '1A': 'Sanskrit-T1', '1B': 'Sanskrit-T1', '1G': 'Sanskrit-T1', '1D': 'Sanskrit-T1',
+  '2A': 'Sanskrit-T1', '2B': 'Sanskrit-T1', '2G': 'Sanskrit-T1', '2D': 'Sanskrit-T1',
+  '3A': 'Sanskrit-T2', '3B': 'Sanskrit-T2', '3G': 'Sanskrit-T2', '3D': 'Sanskrit-T2',
+  '4A': 'Sanskrit-T2', '4B': 'Sanskrit-T2', '4G': 'Sanskrit-T2', '4D': 'Sanskrit-T2',
+};
+
+export const SANSKRIT_TEACHER_LABELS: Record<string, string> = {
+  'Sanskrit-T1': 'Sanskrit Teacher 1',
+  'Sanskrit-T2': 'Sanskrit Teacher 2',
+};
 
 // ─── Hindi Teachers ───────────────────────────────────────────────────────────
 // T1: 6 classes (2 from Std 1, 2 from Std 2, 2 from Std 3)  → 24 periods/week
@@ -96,10 +110,16 @@ export const ALL_TEACHERS: TeacherInfo[] = [
     classes: [classId],
   })),
   {
-    id: SANSKRIT_TEACHER_ID,
-    label: SANSKRIT_TEACHER_LABEL,
+    id: 'Sanskrit-T1',
+    label: 'Sanskrit Teacher 1',
     subject: 'Sanskrit',
-    classes: ALL_CLASSES,
+    classes: ALL_CLASSES.filter((c) => SANSKRIT_CLASS_ASSIGNMENTS[c] === 'Sanskrit-T1'),
+  },
+  {
+    id: 'Sanskrit-T2',
+    label: 'Sanskrit Teacher 2',
+    subject: 'Sanskrit',
+    classes: ALL_CLASSES.filter((c) => SANSKRIT_CLASS_ASSIGNMENTS[c] === 'Sanskrit-T2'),
   },
   {
     id: 'Hindi-T1',

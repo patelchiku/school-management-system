@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { generateTimetable } from '../engine/generator';
-import { ALL_CLASSES, ClassId, DAYS, PERIODS, SubjectName, SUBJECT_COLORS } from '../types';
+import { ClassId, ClassSchedule, DAYS, PERIODS, SubjectName, SUBJECT_COLORS } from '../types';
 import TimetableGrid from '../components/TimetableGrid';
 import PrintButton from '../components/PrintButton';
+import { useTimetable } from '../context/TimetableContext';
 import { Info } from 'lucide-react';
 
 const STANDARDS = [1, 2, 3, 4];
 const SECTIONS = ['A', 'B', 'G', 'D'];
 
-// Subject count for the selected class
-function subjectCount(
-  schedule: ReturnType<typeof generateTimetable>[ClassId],
-): Partial<Record<SubjectName, number>> {
+function subjectCount(schedule: ClassSchedule): Partial<Record<SubjectName, number>> {
   const counts: Partial<Record<SubjectName, number>> = {};
   for (const d of DAYS)
     for (const p of PERIODS) {
@@ -23,7 +20,7 @@ function subjectCount(
 
 export default function ClassTimetablePage() {
   const [selected, setSelected] = useState<ClassId>('1A');
-  const tt = generateTimetable();
+  const { timetable: tt } = useTimetable();
 
   const schedule = tt[selected];
   const counts = subjectCount(schedule);

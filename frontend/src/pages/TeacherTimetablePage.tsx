@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { generateTimetable, getTeacherSchedule } from '../engine/generator';
+import { getTeacherSchedule } from '../engine/generator';
 import { ALL_TEACHERS } from '../data/schoolConfig';
+import { useTimetable } from '../context/TimetableContext';
 import { DAYS, PERIODS, PERIOD_TIMINGS, SUBJECT_COLORS, SubjectName } from '../types';
 import PrintButton from '../components/PrintButton';
 
 export default function TeacherTimetablePage() {
   const [teacherId, setTeacherId] = useState(ALL_TEACHERS[0].id);
-  const tt = generateTimetable();
+  const { timetable: tt } = useTimetable();
 
   const teacher = ALL_TEACHERS.find((t) => t.id === teacherId)!;
   const schedule = getTeacherSchedule(tt, teacherId);

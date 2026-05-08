@@ -1,4 +1,5 @@
-import { generateTimetable, validateTimetable } from '../engine/generator';
+import { validateTimetable } from '../engine/generator';
+import { useTimetable } from '../context/TimetableContext';
 import { ALL_CLASSES, DAYS, PERIODS, SubjectName, SUBJECT_COLORS, WEEKLY_REQUIREMENTS } from '../types';
 import { Link } from 'react-router-dom';
 import { Calendar, Users, CheckCircle, XCircle, AlertTriangle, Clock } from 'lucide-react';
@@ -8,7 +9,7 @@ const SUBJECT_LIST = Object.keys(WEEKLY_REQUIREMENTS).filter(
 ) as SubjectName[];
 
 export default function DashboardPage() {
-  const tt = generateTimetable();
+  const { timetable: tt } = useTimetable();
   const validation = validateTimetable(tt);
 
   // Count total periods per subject across all classes
@@ -23,7 +24,7 @@ export default function DashboardPage() {
   const stats = [
     { label: 'Classes', value: '16', sub: 'Standards 1–4, Sections A·B·G·D', color: 'blue' },
     { label: 'Subjects', value: '10', sub: 'Math · English · Theme · Labs · more', color: 'green' },
-    { label: 'Teachers', value: '21', sub: '16 class teachers + 5 subject teachers', color: 'purple' },
+    { label: 'Teachers', value: '22', sub: '16 class teachers + 6 subject teachers', color: 'purple' },
     {
       label: 'Status',
       value: validation.valid ? 'Valid' : `${validation.errors.length} issues`,
