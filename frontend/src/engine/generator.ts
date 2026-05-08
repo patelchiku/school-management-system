@@ -97,14 +97,28 @@ function placeScienceLab(s: State): void {
 }
 
 // ─── Step 2: Math (one per day, must be in P1/P2/P3) ─────────────────────────
+// Rotate the P1/P2/P3 priority by (classIndex + dayIndex) % 3.
+// This distributes Math evenly across all three periods, so each period is
+// free for ~10 classes per day — giving the Sanskrit/Hindi shared teachers
+// 7 usable slots/day (35 total) instead of just 6 (30) when P1 is always Math.
+
+const MATH_ROTATION: readonly Period[][] = [
+  [1, 2, 3],
+  [2, 3, 1],
+  [3, 1, 2],
+] as const;
 
 function placeMath(s: State): void {
-  for (const c of ALL_CLASSES) {
+  for (let ci = 0; ci < ALL_CLASSES.length; ci++) {
+    const c = ALL_CLASSES[ci];
     const teacher = CLASS_TEACHERS[c];
     const label = CLASS_TEACHER_LABELS[c];
-    for (const d of DAYS) {
+
+    for (let di = 0; di < DAYS.length; di++) {
+      const d = DAYS[di];
+      const order = MATH_ROTATION[(ci + di) % 3];
       let placed = false;
-      for (const p of MATH_ELIGIBLE_PERIODS) {
+      for (const p of order) {
         if (isFree(s, c, d, p) && isTeacherFree(s, teacher, d, p)) {
           place(s, c, d, p, 'Math', teacher, label);
           placed = true;
@@ -303,32 +317,85 @@ function placeTheme(s: State): void {
   }
 }
 
-// ─── Step 8: Sanskrit (2 periods, 1 shared teacher) ──────────────────────────
-// Process in interleaved order (1A,2A,3A,4A,1B,2B,...) to spread teacher load.
+// ─── Global shared-teacher placer (MRV heuristic) ────────────────────────────
+// For subjects where one teacher covers many classes (Sanskrit, Hindi).
+// Iterates every (day, period) slot in order; when the shared teacher is free,
+// assigns the slot to whichever eligible class has the FEWEST remaining valid
+// slots (Most-Remaining-Values = most constrained first). This prevents the
+// greedy per-class approach from starving later classes.
 
-function placeSanskrit(s: State): void {
-  const teacher = SANSKRIT_TEACHER_ID;
-  const label = SANSKRIT_TEACHER_LABEL;
+function placeSubjectGlobal(
+  s: State,
+  teacher: string,
+  teacherLabel: string,
+  subject: SubjectName,
+  classes: ClassId[],
+  periodsPerClass: number,
+): void {
+  const needed = new Map<ClassId, number>(classes.map((c) => [c, periodsPerClass]));
 
-  const order: ClassId[] = [];
-  for (const section of ['A', 'B', 'G', 'D'] as const)
-    for (const std of [1, 2, 3, 4] as const)
-      order.push(`${std}${section}` as ClassId);
+  // Count remaining valid slots (teacher free + class free) for a class
+  const countOptions = (c: ClassId): number => {
+    let n = 0;
+    for (const d of DAYS)
+      for (const p of PERIODS)
+        if (isFree(s, c, d, p) && isTeacherFree(s, teacher, d, p)) n++;
+    return n;
+  };
 
-  for (const c of order) {
-    const n = placeSpread(s, c, teacher, label, 'Sanskrit', 2, DAYS);
-    if (n < 2) console.warn(`Sanskrit short: ${c} got ${n}/2`);
+  for (const d of DAYS) {
+    for (const p of PERIODS) {
+      if (!isTeacherFree(s, teacher, d, p)) continue;
+
+      // Eligible: still needs periods AND this slot is free for the class
+      const eligible = classes.filter(
+        (c) => (needed.get(c) ?? 0) > 0 && isFree(s, c, d, p),
+      );
+      if (eligible.length === 0) continue;
+
+      // Pick most constrained (fewest remaining options)
+      let best = eligible[0];
+      let bestOpts = countOptions(best);
+      for (let i = 1; i < eligible.length; i++) {
+        const opts = countOptions(eligible[i]);
+        if (opts < bestOpts) { bestOpts = opts; best = eligible[i]; }
+      }
+
+      place(s, best, d, p, subject, teacher, teacherLabel);
+      needed.set(best, (needed.get(best) ?? 0) - 1);
+    }
   }
+
+  for (const [c, n] of needed)
+    if (n > 0) console.warn(`${subject} short: ${c} needs ${n} more`);
 }
 
-// ─── Step 9: Hindi (4 periods, assigned teacher) ─────────────────────────────
+// ─── Step 8: Sanskrit (2 periods, 1 shared teacher) ──────────────────────────
+
+function placeSanskrit(s: State): void {
+  placeSubjectGlobal(
+    s,
+    SANSKRIT_TEACHER_ID,
+    SANSKRIT_TEACHER_LABEL,
+    'Sanskrit',
+    ALL_CLASSES,
+    2,
+  );
+}
+
+// ─── Step 9: Hindi (4 periods per class, 3 separate teachers) ────────────────
 
 function placeHindi(s: State): void {
+  // Group classes by their assigned Hindi teacher
+  const groups = new Map<string, ClassId[]>();
   for (const c of ALL_CLASSES) {
-    const teacher = HINDI_TEACHER_ASSIGNMENTS[c];
+    const t = HINDI_TEACHER_ASSIGNMENTS[c];
+    if (!groups.has(t)) groups.set(t, []);
+    groups.get(t)!.push(c);
+  }
+  for (const [teacher, classes] of groups) {
     const label = HINDI_TEACHER_LABELS[teacher] ?? teacher;
-    const n = placeSpread(s, c, teacher, label, 'Hindi', 4, DAYS);
-    if (n < 4) console.warn(`Hindi short: ${c} got ${n}/4`);
+    placeSubjectGlobal(s, teacher, label, 'Hindi', classes, 4);
   }
 }
 
@@ -359,19 +426,27 @@ function fillFree(s: State): void {
 
 let _cached: FullTimetable | null = null;
 
+export function resetTimetableCache(): void {
+  _cached = null;
+}
+
 export function generateTimetable(): FullTimetable {
   if (_cached) return _cached;
 
   const s = initState();
+  // Fixed / hardest constraints first
   placeScienceLab(s);
   placeMath(s);
+  // Shared-teacher subjects placed early (28 free class slots vs 20 later)
+  // so the MRV algorithm has maximum room to satisfy both teacher & class.
+  placeSanskrit(s);
+  placeHindi(s);
+  // Single-teacher subjects (each class has its own teacher → no clash risk)
   placeBlockRoom(s);
   placeComputerLab(s);
   placeLibrary(s);
   placeNatureClub(s);
   placeTheme(s);
-  placeSanskrit(s);
-  placeHindi(s);
   placeEnglish(s);
   fillFree(s);
 
